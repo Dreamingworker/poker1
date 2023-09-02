@@ -4,18 +4,22 @@ document.addEventListener("DOMContentLoaded", () => {
             let currentPlayerIndex = 0; // 当前决策玩家的索引
             let pot = 0; //池底金额
             let currentHighestBet = 0; //当前最高下注
-            let playersOnTable = 0;
+            let playersOnTable = 0; //未弃牌玩家数
 
-            function showAddPlayersPage() {
+            function decisionable() { //如果还能做决策，返回T
+                return (players.filter(player => (player.folded == false && (player.chips > 0))).length > 0 && playersOnTable > 1) //未弃牌玩家大于1且未弃牌又有钱的玩家数大于0
+            }
+
+            function showAddPlayersPage() { //首页-添加玩家页面
                 contentDiv.innerHTML = `
             <h1>德州扑克筹码结算工具</h1>
             <div id="player-form">
                 <h2>添加玩家</h2>
                 <div>
-    <label for="uniform-chips">统一起始筹码</label>
-    <input type="number" id="uniform-chips-input" min="0" placeholder="选填">
-    <button id="set-uniform-chips">更新</button>
-</div>
+                    <label for="uniform-chips">统一起始筹码</label>
+                    <input type="number" id="uniform-chips-input" min="0" placeholder="选填">
+                    <button id="set-uniform-chips">更新</button>
+                </div>
                 <div>
                     <label for="player-name">玩家姓名：</label>
                     <input type="text" id="player-name">
@@ -110,33 +114,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            function showDecisionPage() {
+            function showDecisionPage() { //玩家轮流决策页面
                 const currentPlayer = players[currentPlayerIndex];
-
-                if (players[currentPlayerIndex].folded == false) {
+                if (currentPlayer.folded == false && currentPlayer.chips > 0) {
 
                     contentDiv.innerHTML = `
             <h1>玩家决策界面</h1>
             <div id="game-info">
                 <p>池底: ${pot}</p>
                 <p>最高下注:${currentHighestBet}</p>
-                <p>剩余玩家：${playersOnTable}</p>
             </div>
             <div id="player-info">
             <p>剩余玩家：${playersOnTable}</p>
         ${players.map(player => `
-            <p>${player.name} - 已下注:${player.inPot} - 剩余筹码:${player.chips}${player.folded ? " - 已弃牌" : ""}</p>
+            <p>${player.name} - 已下注:${player.inPot} - 剩余筹码:${player.chips}${player.inPot>0&&player.chips==0 ? " - All in" : ""}${player.folded ? " - 已弃牌" : ""}</p>
         `).join("")}
     </div>
             <div id="player-actions">
                 <h2>玩家 ${currentPlayer.name} 决策</h2>
                 <p>本局已下注:${currentPlayer.inPot}剩余筹码:${currentPlayer .chips}</p>
-                <button id="call">跟注</button>
+                <button id="call" ${currentHighestBet - currentPlayer.inPot > currentPlayer.chips ? "disabled":""}>跟注</button>
                 <button id="fold">弃牌</button>
-                <button id="skip">跳过</button>
+                <button id="skip" ${currentPlayer.inPot<currentHighestBet ? "disabled":""}>跳过</button>
                 <label for="raise-amount">加注金额：</label>
                 <input type="number" id="raise-amount" min="0" placeholder="下注金额">
                 <button id="raise">加注</button>
+                <button id="all-in">All-in</button>
             </div>
             <button id="end-round">结束局面</button>
         `;
@@ -148,11 +151,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const raiseAmountInput = document.getElementById("raise-amount");
             const raiseButton = document.getElementById("raise");
             const endRoundButton = document.getElementById("end-round");
+            const allInbotton = document.getElementById("all-in")
 
-            function bet(n) {
-                if (players[currentPlayerIndex].chips >= n) {
-                    players[currentPlayerIndex].chips -= n;
-                    players[currentPlayerIndex].inPot += n;
+            function bet(n) { //底层下注逻辑
+                if (currentPlayer.chips >= n) {
+                    currentPlayer.chips -= n;
+                    currentPlayer.inPot += n;
                     pot += n;
                     if (currentPlayer.inPot > currentHighestBet) {
                         currentHighestBet = currentPlayer.inPot
@@ -160,9 +164,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            callButton.addEventListener("click", () => {
-                // 处理跟注逻辑       有问题
-                if (currentHighestBet - players[currentPlayerIndex].inPot <= currentPlayer.chips) {
+            callButton.addEventListener("click", () => { // 处理跟注逻辑       
+                if (currentHighestBet - currentPlayer.inPot <= currentPlayer.chips) {
                     bet(currentHighestBet - currentPlayer.inPot);
                     nextPlayer();
                 } else {
@@ -170,55 +173,67 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
 
-            foldButton.addEventListener("click", () => {
-                players[currentPlayerIndex].folded = true;
-                playersOnTable -=1;
-                // 处理弃牌逻辑
+            foldButton.addEventListener("click", () => { // 处理弃牌逻辑
+                currentPlayer.folded = true;
+                playersOnTable -= 1;
                 nextPlayer();
-                if(playersOnTable==1){
-                    updateRemainingPlayersList();
-                }
             });
 
             skipButton.addEventListener("click", () => {
                 nextPlayer();
             });
 
-            raiseButton.addEventListener("click", () => {
+            raiseButton.addEventListener("click", () => { // 处理加注逻辑
                 const raiseAmount = parseInt(raiseAmountInput.value);
                 if (currentPlayer.inPot + raiseAmount < currentHighestBet) {
                     alert("至少追平当前最高下注")
-                }
-                else if (currentPlayer.chips >= raiseAmount) {
+                } else if (currentPlayer.chips >= raiseAmount) {
                     bet(raiseAmount)
                     nextPlayer();
                 } else {
                     alert("筹码不足")
                 }
-                // 处理加注逻辑
+
 
             });
-
+            allInbotton.addEventListener("click", () => { //All-in逻辑
+                if (currentPlayer.chips > 0) {
+                    bet(currentPlayer.chips)
+                    nextPlayer()
+                } else {
+                    alert("筹码已空")
+                }
+            });
 
             function nextPlayer() { // 显示下一个玩家的决策界面
-                currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-                showDecisionPage();
+                if (!decisionable()) {
+                    updateRemainingPlayersList();
+                } else {
+                    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+                    showDecisionPage();
+                }
             };
 
 
-            endRoundButton.addEventListener("click", () => {
-                // 处理结束局面，分配池底中的筹码给获胜的玩家
+            endRoundButton.addEventListener("click", () => {// 处理结束局面，分配池底中的筹码给获胜的玩家
+                
                 updateRemainingPlayersList();
-                // 显示新的局面或者游戏结束界面
+
             });
         } else { //转由下一个没有弃牌的玩家决策
+            if(!decisionable()){
+                updateRemainingPlayersList()
+            }
+            else{
             currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
             showDecisionPage();
+            }
         }
     }
 
-    function showEndRoundPage() {
+    function showEndRoundPage() { //结算页面
         const remainingPlayers = players.filter(player => !player.folded);
+        const otherPlayers = players.filter(player => player.folded);
 
         contentDiv.innerHTML = `
                     <h1>局面结束</h1>
@@ -233,6 +248,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                     座位号 ${player.seat} - ${player.name} - 本局下注：${player.inPot} 手中筹码：${player.chips}
                                     <button class="retrieve-chips" data-seat="${player.seat}">取回筹码</button>
                                     <button class="all-retrieve" data-seat="${player.seat}">全部取回</button>
+                                </li>
+                            `).join("")}
+                        </ul>
+                        <h3>已弃牌玩家信息</h3>
+                        <ul>
+                            ${otherPlayers.map(player => `
+                                <li>
+                                    座位号 ${player.seat} - ${player.name} - 本局下注：${player.inPot} 手中筹码：${player.chips}
+                                    <button class="retrieve-chips" data-seat="${player.seat}">取回筹码</button>
                                 </li>
                             `).join("")}
                         </ul>
@@ -272,13 +296,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         nextRoundButton.addEventListener("click", () => {
-            for (const player of players) {
-                player.folded = false;
-                player.inPot = 0;
+            if (pot == 0) {
+
+                for (const player of players) {
+                    player.folded = false;
+                    player.inPot = 0;
+                }
+                currentHighestBet = 0;
+                currentPlayerIndex = 0;
+                playersOnTable = players.length;
+                showDecisionPage();
+            } else {
+                alert("请将筹码完全分配");
             }
-            currentHighestBet = 0;
-            currentPlayerIndex = 0;
-            showDecisionPage();
         })
 
         // ...其他代码...
