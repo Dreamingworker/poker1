@@ -119,27 +119,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (currentPlayer.folded == false && currentPlayer.chips > 0) {
 
                     contentDiv.innerHTML = `
-            <h1>玩家决策界面</h1>
+            <h1 id="decisionTitle">玩家决策界面</h1>
             <div id="game-info">
                 <p>池底: ${pot}</p>
-                <p>最高下注:${currentHighestBet}</p>
+                <p>当前最高下注:${currentHighestBet}</p>
             </div>
             <div id="player-info">
             <p>剩余玩家：${playersOnTable}</p>
         ${players.map(player => `
             <p>${player.name} - 已下注:${player.inPot} - 剩余筹码:${player.chips}${player.inPot>0&&player.chips==0 ? " - All in" : ""}${player.folded ? " - 已弃牌" : ""}</p>
         `).join("")}
+        <p>剩余玩家：${playersOnTable}</p>
     </div>
             <div id="player-actions">
-                <h2>玩家 ${currentPlayer.name} 决策</h2>
+                <h2>玩家 ${currentPlayer.seat}:${currentPlayer.name} 决策</h2>
                 <p>本局已下注:${currentPlayer.inPot}剩余筹码:${currentPlayer .chips}</p>
+                <div id="buttonContainer">
+                    <div id="buttonsLine">
                 <button id="call" ${currentHighestBet - currentPlayer.inPot > currentPlayer.chips ? "disabled":""}>跟注</button>
+                <button id="all-in">All-in</button>
                 <button id="fold">弃牌</button>
                 <button id="skip" ${currentPlayer.inPot<currentHighestBet ? "disabled":""}>跳过</button>
-                <label for="raise-amount">加注金额：</label>
+                    </div>
+                    <div id="inputLine>
+                <label for="raise-amount">下注:</label>
                 <input type="number" id="raise-amount" min="0" placeholder="下注金额">
                 <button id="raise">加注</button>
-                <button id="all-in">All-in</button>
+                    </div>
+                </div>
             </div>
             <button id="end-round">结束局面</button>
         `;
